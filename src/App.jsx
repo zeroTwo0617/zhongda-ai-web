@@ -17,6 +17,48 @@ const industries = [
  {name:'医疗健康',icon:UsersThree,photo:3,headline:'让服务信息，更易获取与理解。',text:'聚焦就医流程、服务指南与内部资料查询，为非诊疗服务提供信息支持。',scenes:['就医流程指引','服务事项查询','内部资料检索']},
 ];
 const trend = [32,47,40,67,58,74,69].map((value,i)=>({day:['周一','周二','周三','周四','周五','周六','周日'][i],value}));
+// 滚动入场：交由 JS 打标记，保证无 JS 时不隐藏任何内容；动效开关在 CSS 的 prefers-reduced-motion 里
+const REVEAL_SELECTOR='.pillar,.section-heading,.product-card,.showcase-copy,.dashboard-wrap,.industry-tabs,.industry-panel,.about-inner>*,.contact-banner>*';
+function useReveal(){
+ useEffect(()=>{
+  if(window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const nodes=[...document.querySelectorAll(REVEAL_SELECTOR)];
+  if(!nodes.length) return;
+  const timers=[];
+  nodes.forEach((el,i)=>{el.classList.add('reveal');el.style.transitionDelay=(i%4)*70+'ms'});
+  const io=new IntersectionObserver(entries=>{entries.forEach(e=>{
+   if(!e.isIntersecting) return;
+   io.unobserve(e.target);
+   const el=e.target;
+   el.classList.add('is-in');
+   // 动画结束后摘掉标记与延迟，避免内联 transition-delay 拖慢 hover 反馈
+   timers.push(setTimeout(()=>{el.classList.remove('reveal','is-in');el.style.transitionDelay=''},1200));
+  })},{rootMargin:'0px 0px -8% 0px',threshold:.12});
+  nodes.forEach(el=>io.observe(el));
+  return()=>{io.disconnect();timers.forEach(clearTimeout)};
+ },[]);
+}
+const metrics=[['今日对话',1286],['知识文档',328],['运行中智能体',12]];
+function Metric({label,value}){
+ const [shown,setShown]=useState(value);
+ const ref=useRef(null);
+ useEffect(()=>{
+  const el=ref.current;
+  if(!el||window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  let raf=0,start=0;
+  const io=new IntersectionObserver(([entry])=>{
+   if(!entry.isIntersecting) return;
+   io.disconnect();
+   const duration=1200;
+   const step=t=>{if(!start)start=t;const p=Math.min(1,(t-start)/duration);setShown(Math.round(value*(1-Math.pow(1-p,3))));if(p<1)raf=requestAnimationFrame(step)};
+   setShown(0);
+   raf=requestAnimationFrame(step);
+  },{threshold:.35});
+  io.observe(el);
+  return()=>{io.disconnect();cancelAnimationFrame(raf)};
+ },[value]);
+ return <div><span>{label}</span><strong ref={ref}>{shown.toLocaleString('en-US')}</strong><small>示例数据</small></div>;
+}
 function Brand({light=false}) { return <a className={'brand '+(light?'light':'')} href="#home" aria-label="众达AI 首页"><img src="/assets/logo.png" alt=""/><strong>众达AI</strong></a> }
 function Dashboard({expanded=false}) {
  const [active,setActive]=useState(0);
@@ -26,7 +68,7 @@ function Dashboard({expanded=false}) {
  return <div className={'dashboard '+(expanded?'expanded':'')}>
   <aside className="dash-sidebar"><Brand light/><div className="workspace-label">企业工作空间</div>{tabs.map((t,i)=><button key={t.title} onClick={()=>setActive(i)} aria-pressed={active===i} className={active===i?'selected':''}><t.icon size={16}/><span>{t.title}</span></button>)}<div className="sidebar-bottom"><ShieldCheck size={16}/><span>连接每一份价值</span></div></aside>
   <div className="dash-body"><div className="dash-top"><span>众达 AI 企业服务平台</span><span className="demo-label">交互演示 · 示例数据</span></div><div className="dash-content">
-  {active===0?<><div className="dash-greeting"><div><h3>你好，欢迎使用众达AI</h3><p>让智能成为每一个业务的助力。</p></div><Sparkle size={26} weight="duotone"/></div><div className="dash-metrics">{[['今日对话','1,286'],['知识文档','328'],['运行中智能体','12']].map(([label,value])=><div key={label}><span>{label}</span><strong>{value}</strong><small>示例数据</small></div>)}</div><div className="dash-chart"><div className="chart-title"><strong>服务互动趋势</strong><span>最近 7 天</span></div><ResponsiveContainer width="100%" height={expanded?190:126}><AreaChart data={trend} margin={{top:16,right:8,bottom:0,left:8}}><CartesianGrid vertical={false} stroke="#e8eef6"/><XAxis dataKey="day" tick={{fontSize:10,fill:'#8b98aa'}} axisLine={false} tickLine={false}/><Tooltip formatter={v=>[v,'互动量（示例）']} /><Area type="monotone" dataKey="value" stroke="#2679ff" fill="#edf4ff" strokeWidth={2}/></AreaChart></ResponsiveContainer></div></>:
+  {active===0?<><div className="dash-greeting"><div><h3>你好，欢迎使用众达AI</h3><p>让智能成为每一个业务的助力。</p></div><Sparkle size={26} weight="duotone"/></div><div className="dash-metrics">{metrics.map(([label,value])=><Metric key={label} label={label} value={value}/>)}</div><div className="dash-chart"><div className="chart-title"><strong>服务互动趋势</strong><span>最近 7 天</span></div><ResponsiveContainer width="100%" height={expanded?190:126}><AreaChart data={trend} margin={{top:16,right:8,bottom:0,left:8}}><CartesianGrid vertical={false} stroke="#e8eef6"/><XAxis dataKey="day" tick={{fontSize:10,fill:'#8b98aa'}} axisLine={false} tickLine={false}/><Tooltip formatter={v=>[v,'互动量（示例）']} /><Area type="monotone" dataKey="value" stroke="#2679ff" fill="#edf4ff" strokeWidth={2}/></AreaChart></ResponsiveContainer></div></>:
   active===1?<div className="dash-module"><ChatCircleDots size={32} color="#1767ff"/><h3>让问题，更快找到答案</h3><p>试试向服务助手提一个问题。</p><div className="chat-example"><strong>如何开始使用企业知识库？</strong><p>先整理企业常用资料，再在知识库中上传文档。解析完成后，即可在对话中检索相关内容。</p><small>预设对话示例</small></div><button className="text-link" onClick={()=>setActive(2)}>查看知识库 <ArrowRight/></button></div>:
   active===2?<div className="dash-module"><h3>企业知识库</h3><label className="dash-search"><MagnifyingGlass/><input aria-label="搜索示例文档" placeholder="搜索示例文档" value={query} onChange={e=>setQuery(e.target.value)}/></label>{docs.filter(d=>d.includes(query)).map(d=><div className="document-row" key={d}><FileText size={22}/><span>{d}</span><small>已就绪</small></div>)}{!docs.some(d=>d.includes(query))&&<p className="empty">没有找到相关文档，请换个关键词。</p>}</div>:
   <div className="dash-module"><h3>你的智能协作团队</h3><p>为具体任务，找到合适的助手。</p>{['客户服务助手','知识检索助手','办公文案助手'].map(t=><div className="document-row" key={t}><Robot size={24}/><span>{t}</span><small>演示中</small></div>)}</div>}
@@ -47,6 +89,7 @@ function Contact() {
 export function App(){
  const [menu,setMenu]=useState(false),[modal,setModal]=useState(null),[industry,setIndustry]=useState(0);
  const chosen=industries[industry];
+ useReveal();
  const nav=[['home','首页'],['products','产品能力'],['solutions','解决方案'],['about','关于我们']];
  return <><header><div className="nav-shell"><Brand/><nav className={menu?'is-open':''} aria-label="主导航">{nav.map(([id,label])=><a key={id} href={'#'+id} onClick={()=>setMenu(false)}>{label}</a>)}<button className="nav-contact" onClick={()=>{setMenu(false);setModal('contact')}}>联系我们</button></nav><button className="primary nav-demo" onClick={()=>setModal('demo')}>体验产品演示 <ArrowUpRight size={16}/></button><button className="menu-button" aria-expanded={menu} aria-label={menu?'关闭导航':'打开导航'} onClick={()=>setMenu(!menu)}>{menu?<X/>:<List/>}</button></div></header>
  <main><section className="hero" id="home"><img className="hero-art" src="/assets/hero.png" alt="蓝色玻璃质感的众达AI连接标志"/><div className="container hero-inner"><div className="hero-copy"><p className="eyebrow">众人连接 · 通达服务 · 智能应用</p><h1>连接人与智能<br/>让服务更高效<span>。</span></h1><p className="hero-description">让 AI 融入真实业务，连接每一份知识与服务。<br className="desktop-break"/>与众达AI一起，探索企业智能化的更多可能。</p><div className="hero-actions"><a href="#solutions" className="primary">了解解决方案 <ArrowRight size={18}/></a><button className="secondary" onClick={()=>setModal('contact')}>联系我们 <ArrowUpRight size={17}/></button></div><div className="hero-footnote"><span>CONNECT PEOPLE. ENABLE INTELLIGENCE.</span></div></div><div className="hero-caption"><span>以连接，创造价值</span><small>CONNECTED INTELLIGENCE</small></div></div></section>
