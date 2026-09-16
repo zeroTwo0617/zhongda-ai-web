@@ -15,3 +15,11 @@
 - **沙箱内给本地页面临时截图**：`agent-browser` 未安装；nuphus MCP 浏览器工具被 SSRF 守卫拒绝访问 127.0.0.1。可行方案见用户级技能 `local-page-screenshot`（chrome-headless-shell + 原生 CDP）。
 - 截图输出目录用 ASCII 临时路径（如 `C:\Users\86151\AppData\Local\Temp\...`），因为 Chrome 对含中文的工作区路径处理不稳。
 - 本地 dev server 端口 5173（`npm run dev -- --port 5173 --strictPort`，vite.config 已开 `host: 0.0.0.0`）。
+
+## 仓库与协作
+- **远程**：https://github.com/zeroTwo0617/zhongda-ai-web （PRIVATE）。
+- `main` 是基线，`feat/visual-upgrade` 是设计令牌与动效改造分支（已推送，领先 main 3 个提交）。
+- **沙箱里 `git push` 永远不通**：`github.com` 被网络策略拦截（CONNECT 502），只有 `api.github.com` 可通。推送一律走技能 `github-push-via-api`（Git Data API 桥，SHA 与本地一致，不会分叉）。本地也 `fetch` 不到远程，分支名是唯一真相来源——**不要在 GitHub 网页上直接改文件**，否则 SHA 对不上后续推送会被拒。
+- `git init` 后若报 `detected dubious ownership`（目录属主是沙箱用户），已加过 `safe.directory` 豁免；换新项目路径需重新加一条。
+- `dist/` 与 `node_modules/` 已 gitignore；`.workbuddy/memory` 与 `AGENTS.md` 入库（项目数据，非临时缓存）。
+- `.gitattributes` 强制 `eol=lf`，避免 Windows 下 CRLF 反复产生噪音 diff。
